@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "python-lambda-template"
+version = "0.0.1"
+description = "Python Lambda Template - Repo initiated with all the utils used by Deepia"
+authors = ["Dan Ringwald <dan@deepia.fr>"]
+readme = "README.md"
+packages = [{include = "python_lambda_template", from = "."}]
+
+[tool.poetry.dependencies]
+python = "~3.11"
+
+[tool.poetry.group.layer.dependencies]
+pydantic = "^2.5.2"
+pre-commit = "^3.6.2"
+loguru = "^0.7.2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.12.0"
+pytest = "^7.2.1"
+ruff = "^0.0.275"
+aws-sam-cli = "^1.88.0"
+pre-commit = "^3.3.3"
+isort = "^5.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100

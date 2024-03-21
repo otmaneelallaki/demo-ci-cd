@@ -1,0 +1,9 @@
+version = 0.1
+[deepa.deploy.parameters]
+stack_name = "python-lambda-template-app"
+resolve_s3 = true
+s3_prefix = "python-lambda-template-app"
+region = "eu-west-3"
+profile = "deepia"
+capabilities = "CAPABILITY_IAM"
+image_repositories = []

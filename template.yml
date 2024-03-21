@@ -1,0 +1,171 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Lambda function and API Gateway with prod, preview and dev ($latest) envs
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+
+Resources:
+  ApiGateway:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: "deepia"
+      Description: "Deepia API"
+  ApiGatewayResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      ParentId: !GetAtt
+            - ApiGateway
+            - RootResourceId
+      PathPart: "python-lambda-template"
+      RestApiId: !Ref "ApiGateway"
+  ApiGatewayRootMethod:
+    DependsOn:
+      - ApiGatewayInvokeDevPermission
+      - ApiGatewayInvokePreviewPermission
+      - ApiGatewayInvokeProdPermission
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      ApiKeyRequired: true
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}:${!stageVariables.lambdaAlias}/invocations"
+          - lambdaArn: !GetAtt "PythonLambdaTemplateFunction.Arn"
+      ResourceId: !Ref ApiGatewayResource
+      RestApiId: !Ref ApiGateway
+  ApiGatewayInitialDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn: ApiGatewayRootMethod
+    Properties:
+      RestApiId: !Ref "ApiGateway"
+  ApiGatewayApiKeyDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn: UsagePlanKey
+    Properties:
+      RestApiId: !Ref "ApiGateway"
+  ApiGatewayDevStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref "ApiGateway"
+      StageName: Dev
+      DeploymentId: !Ref "ApiGatewayInitialDeployment"
+      Variables:
+        lambdaAlias: Dev
+  ApiGatewayPreviewStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref "ApiGateway"
+      StageName: Preview
+      DeploymentId: !Ref "ApiGatewayInitialDeployment"
+      Variables:
+        lambdaAlias: Preview
+  ApiGatewayProdStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref "ApiGateway"
+      StageName: Prod
+      DeploymentId: !Ref "ApiGatewayInitialDeployment"
+      Variables:
+        lambdaAlias: Prod
+  PythonLambdaTemplateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: python-lambda-template
+      CodeUri: python_lambda_template/
+      Handler: index.handler
+      Runtime: python3.11
+      Layers:
+        - arn:aws:lambda:eu-west-3:508964863401:layer:pydantic:5
+      Architectures:
+      - x86_64
+  InitialVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref PythonLambdaTemplateFunction
+      Description: v1
+  DevAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref PythonLambdaTemplateFunction
+      FunctionVersion: $LATEST
+      Name: Dev
+  ApiGatewayInvokeDevPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref "DevAlias"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/python-lambda-template"
+  PreviewAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref PythonLambdaTemplateFunction
+      FunctionVersion: !GetAtt InitialVersion.Version
+      Name: Preview
+  ApiGatewayInvokePreviewPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref "PreviewAlias"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/python-lambda-template"
+  ProdAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref PythonLambdaTemplateFunction
+      FunctionVersion: !GetAtt InitialVersion.Version
+      Name: Prod
+  ApiGatewayInvokeProdPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref "ProdAlias"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/python-lambda-template"
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn:
+      - ApiGatewayInitialDeployment
+      - ApiGatewayDevStage
+      - ApiGatewayPreviewStage
+      - ApiGatewayProdStage
+    Properties:
+      Description: Unlimited Rule Engine Usage Plan
+      ApiStages:
+        - ApiId: !Ref ApiGateway
+          Stage: !Sub Dev
+        - ApiId: !Ref ApiGateway
+          Stage: !Sub Preview
+        - ApiId: !Ref ApiGateway
+          Stage: !Sub Prod
+      UsagePlanName: "Unlimited Usage Plan"
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Description: API Key
+      Name: PythonLambdaTemplateKey
+      Enabled: True
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+Outputs:
+  PythonLambdaTemplateProdApi:
+    Description: Prod Rule Engine API Gateway endpoint URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/python-lambda-template/"
+  PythonLambdaTemplatePreviewApi:
+    Description: Preview Rule Engine API Gateway endpoint URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Preview/python-lambda-template/"
+  PythonLambdaTemplateDevApi:
+    Description: Dev Rule Engine API Gateway endpoint URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Dev/python-lambda-template/"
