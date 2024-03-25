@@ -169,3 +169,6 @@ cython_debug/
 
 # ruff 
 .ruff_cache
+
+# note cmnd line 
+CL.sh
