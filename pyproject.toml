@@ -8,6 +8,7 @@ packages = [{include = "python_lambda_template", from = "."}]
 
 [tool.poetry.dependencies]
 python = "~3.11"
+pandas = "^2.2.1"
 
 [tool.poetry.group.layer.dependencies]
 pydantic = "^2.5.2"
