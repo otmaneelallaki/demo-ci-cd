@@ -1,13 +1,12 @@
 import pandas as pd
 
 
-def handler(event, context):
+def lambda_handler(event, context):
+    # Create a DataFrame
+    data = {"Name": ["Alice", "Bob", "Charlie"], "Age": [30, 35, 40]}
+    df = pd.DataFrame(data)
 
-    dic = {"name": ["otmane", "imane"], "prenom": ["chouli", "tribak"]}
-    data = pd.DataFrame(dic)
+    # Convert DataFrame to JSON string
+    df_json = df.to_json(orient="records")
 
-    return {
-        "statusCode": 200,
-        "headers": {"Content-Type": "application/txt"},
-        "body": data,
-    }
+    return {"statusCode": 200, "body": df_json, "headers": {"Content-Type": "application/json"}}
