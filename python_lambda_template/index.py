@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def lambda_handler(event, context):
+def handler(event, context):
     # Create a DataFrame
     data = {"Name": ["Alice", "Bob", "Charlie"], "Age": [30, 35, 40]}
     df = pd.DataFrame(data)

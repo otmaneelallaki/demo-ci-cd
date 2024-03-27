@@ -1,4 +1,5 @@
 name: AWS Lambda Deploy
+run-name: AWS Lambda Deploy
 
 on:
   push:
